@@ -1,0 +1,20 @@
+[project]
+name = "ts_weather_forecasting"
+version = "1.0.0"
+description = "Time Series Analysis. Learning DecisionTree, RandomForest, XGBoost"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "google>=3.0.0",
+    "ipywidgets>=8.1.8",
+    "matplotlib>=3.10.8",
+    "openpyxl>=3.1.5",
+    "optuna>=4.8.0",
+    "pandas>=2.3.3",
+    "pip>=26.1.1",
+    "pywavelets>=1.8.0",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+    "statsmodels>=0.14.6",
+    "xgboost>=3.2.0",
+]
