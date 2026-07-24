@@ -303,3 +303,6 @@ pyrightconfig.json
 .idea
 .idea/
 .idea/*
+
+.cache.sqlite
+*.sqlite

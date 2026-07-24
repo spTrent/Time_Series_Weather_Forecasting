@@ -1,7 +1,7 @@
 import time
 import pandas as pd
 from sqlalchemy import text
-from get_weather import CITY_COORDS, get_weather_data
+from src.scripts.get_weather import CITY_COORDS, get_weather_data
 from src.db import upsert_weather, get_engine
 
 
@@ -9,7 +9,7 @@ def year_butches(date_start: str, date_end: str):
     curr = pd.to_datetime(date_start)
     end = pd.to_datetime(date_end)
     while curr <= end:
-        year_end = min(pd.Timestamp(f"curr.year-12-31"), end)
+        year_end = min(pd.Timestamp(f"{curr.year}-12-31"), end)
         yield curr.strftime("%Y-%m-%d"), year_end.strftime("%Y-%m-%d")
         curr = year_end + pd.Timedelta(days=1)
 
@@ -26,6 +26,10 @@ def get_history(date_start: str, date_end: str, cities: tuple[str] = tuple(CITY_
         total += city_total
     return total
 
-with get_engine().begin() as c:
-    c.execute(text("TRUNCATE weather_hourly"))
-get_history("2015-01-01", "2026-07-23")
+
+if __name__ == '__main__':
+    with get_engine().begin() as c:
+        c.execute(text("TRUNCATE weather_hourly"))
+    start_date = input('Введите начало (Год-месяц-день): ')
+    end_date = input('Введите конец (Год-месяц-день): ')
+    get_history(start_date, end_date)

@@ -69,6 +69,13 @@ def get_weather_data(city: str, start_date: str, end_date: str) -> pd.DataFrame:
 	df["weathercode"] = df["weathercode"].round().astype("Int16")
 	return df
 
-df = get_weather_data('Находка', '2025-12-31', '2025-12-31')
-print(upsert_weather(df))
-print('NaN в температуре:', df['temperature_2m'].isna().sum())
+def main(city: str, start_date: str, end_date: str):
+	df = get_weather_data(city, start_date, end_date)
+	print('Добавлено строк: ', upsert_weather())
+	print('NaN в температуре:', df['temperature_2m'].isna().sum())
+
+if __name__ == "__main__":
+	city = input('Введите город: ')
+	start_date = input('Введите начало (Год-месяц-день): ')
+	end_date = input('Введите конец (Год-месяц-день): ')
+	main(city, start_date, end_date)
