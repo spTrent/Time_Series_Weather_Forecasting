@@ -97,12 +97,13 @@ docker compose up -d
 
 Все скрипты запускаются **как модули из корня проекта**:
 
-| Скрипт | Назначение |
-|---|---|
-| **`src/db.py`** | `get_engine()` — подключение из `.env`; `upsert_weather(df)` — заливка датафрейма в `weather_hourly` через staging-таблицу и `INSERT … ON CONFLICT (city, ds) DO NOTHING` (идемпотентно, без дублей). |
-| **`src/scripts/init_db.py`** | Читает `data/weather_clean.csv` и заливает в БД (`to_sql`). Разовая загрузка исторических данных, подготовленных ноутбуком. |
-| **`src/scripts/get_weather.py`** | Тянет почасовую историю **одного города** за период из Open-Meteo **Archive API**, приводит к схеме (в т.ч. `weather_code` → `weathercode`, локальное время) и делает upsert. Запуск интерактивный: спрашивает город и даты. |
-| **`src/scripts/get_history_weather.py`** | **Полная перезаливка**: `TRUNCATE weather_hourly`, затем качает **все города** за диапазон дат батчами по годам (upsert). Для сборки датасета с нуля только из Open-Meteo. |
+| Файл | Назначение                                                                                                                                                                |
+|---|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`src/repositories/config.py`** | `Settings` (pydantic `BaseSettings`) + `get_engine()` — подключение из окружения/`.env`; `MODELS_DIR`.                                                                    |
+| **`src/repositories/sqlalchemy_weather_repository.py`** | `load_archive(...)` — чтение окна из БД; `upsert(df)` — заливка через staging-таблицу и `INSERT … ON CONFLICT (city, ds) DO NOTHING` (идемпотентно, без дублей).          |
+| **`src/repositories/scripts/init_db.py`** | Читает `data/weather_clean_with_xlsx.csv` (готовится ноутбуком, xlsx-поток) и заливает в БД (`to_sql`).                                                                   |
+| **`src/repositories/scripts/get_weather.py`** | Тянет почасовую историю **одного города** из Open-Meteo **Archive API**, приводит к схеме и делает upsert. Интерактивный.                                                 |
+| **`src/repositories/scripts/get_history_weather.py`** | **Полная перезаливка**: (опционально `TRUNCATE`), затем качает **все города** за диапазон дат батчами по годам (upsert). Для сборки датасета с нуля только из Open-Meteo. |
 
 ---
 
@@ -115,12 +116,12 @@ docker compose up -d
 ```
 
 ```text
-# В src/ts.ipynb: get_df('xlsx') -> прогнать блок очистки -> сохранить чистый CSV
+# В research/ts.ipynb: get_df('xlsx') -> прогнать блок очистки -> сохранить чистый CSV
 ```
 
 ```bash
-python -m src.scripts.init_db
-python -m src.scripts.get_weather
+python -m src.repositories.scripts.init_db
+python -m src.repositories.scripts.get_weather
 #   Введите город:  Москва
 #   Введите начало: 2026-01-01
 #   Введите конец:  2026-07-24
@@ -138,7 +139,7 @@ python -m src.scripts.get_weather
 ```bash
 docker compose up -d
 
-python -m src.scripts.get_history_weather
+python -m src.repositories.scripts.get_history_weather
 #   Введите начало: 2013-01-01
 #   Введите конец:  2026-07-24
 ```
@@ -147,7 +148,7 @@ python -m src.scripts.get_history_weather
 
 ---
 
-## Пайплайн (`src/ts.ipynb`)
+## Пайплайн (`research/ts.ipynb`)
 
 1. **Загрузка** — `get_df(source)`: Excel или БД.
 2. **Очистка** (для `xlsx`): кириллица, нормализация городов, парсинг текстовых кодов погоды, заполнение пропусков, физические диапазоны, скользящий z-score (окно 24 ч).
@@ -165,20 +166,108 @@ python -m src.scripts.get_history_weather
 
 `Python 3.12+`
 
-- `pandas`, `numpy`, `pyarrow` — данные
-- `matplotlib`, `seaborn`, `pywavelets`, `statsmodels` — EDA и анализ ряда
-- `scikit-learn`, `xgboost` — модели и метрики
-- `optuna` — подбор гиперпараметров
-- `sqlalchemy`, `psycopg2`, `python-dotenv` — работа с PostgreSQL
-- `openmeteo-requests`, `requests-cache`, `retry-requests` — загрузка из Open-Meteo
-- Docker / Docker Compose — PostgreSQL
+**Рантайм API** (попадает в Docker-образ):
+- `fastapi`, `uvicorn[standard]` — веб-слой
+- `pandas`, `numpy` — данные и признаки
+- `xgboost`, `scikit-learn`, `joblib` — модели и загрузка схемы
+- `sqlalchemy`, `pydantic-settings` — PostgreSQL и настройки
 
-## Установка
+**Обучение / ноутбук** (dev-группа, в образ не идёт):
+- `matplotlib`, `seaborn`, `pywavelets`, `statsmodels` — EDA и анализ ряда
+- `optuna` — подбор гиперпараметров,
+- `openmeteo-requests`, `requests-cache`, `retry-requests` — загрузка из Open-Meteo
+
+**Качество кода:** `ruff`, `mypy`, `pytest`, `pre-commit`.
+**Инфраструктура:** Docker / Docker Compose (PostgreSQL + сервис API).
+
+## Установка (для разработки)
 
 ```bash
-uv venv
-source .venv/bin/activate
-uv sync
+uv sync                      # ставит рантайм + dev-зависимости (ноутбук, тесты)
 ```
 
-Затем подними БД (`docker compose up -d`) и следуй гайду A или B.
+Затем подними БД (`docker compose up -d db`) и следуй гайду A или B для наполнения данными.
+
+---
+
+## Запуск приложения
+
+Веб-приложение: страница с выбором города/даты и графиком температуры + REST API.
+
+### Вариант 1 — весь стек в Docker (рекомендуется)
+
+```bash
+docker compose up -d --build
+```
+Поднимает PostgreSQL (`db`) и API (`app`). Открыть **http://localhost:8000**.
+
+> В образ входят только рантайм-зависимости (`uv sync --no-dev`), модели из `Models/` и фронтенд из `web/`. Данные должны быть в томе `weather_pgdata` (см. гайды A/B); при пустом томе схема создастся из `init/`, но данные надо залить.
+
+### Вариант 2 — локально
+
+```bash
+docker compose up -d db                          # только БД
+uv sync
+.venv/bin/uvicorn src.api.app:app --reload       # запускать ИЗ корня проекта
+```
+Открыть **http://localhost:8000**.
+
+Нужны: `.env` с `POSTGRES_*`, наполненная БД и модели в `Models/`.
+
+---
+
+## API
+
+Базовый адрес: `http://localhost:8000`. Swagger-документация — `/docs`.
+
+| Метод | Путь | Назначение |
+|---|---|---|
+| `GET` | `/` | HTML-страница: форма (город + дата/час) и график прогноза |
+| `GET` | `/weather` | Прогноз или архивное значение температуры |
+
+### `GET /weather`
+
+Query-параметры:
+
+| Параметр | Тип | Описание |
+|---|---|---|
+| `city` | str | Один из 6 городов (Москва, Санкт-Петербург, Благовещенск, Находка, Сочи, Геленджик) |
+| `time` | datetime (ISO) | Целевой момент. Время приводится к локальному для города |
+
+Поведение:
+- `time` **в прошлом** (≤ текущего часа города) → одно значение из архива наблюдений;
+- `time` **в будущем** → почасовой прогноз от «сейчас» до `time` (не дальше +168 ч от текущего часа).
+
+**Ответ `200`** (`WeatherResponse`):
+```json
+{
+  "time": ["2026-07-26T00:00:00", "2026-07-26T01:00:00"],
+  "temp": [17.6, 16.9]
+}
+```
+`time` — метки времени (локальные для города), `temp` — температура в °C; массивы одной длины.
+
+**Ошибки** (тело `{"detail": "..."}`):
+
+| Код | Когда |
+|---|---|
+| `404` | неизвестный город; нет данных за запрошенный час |
+| `422` | недостаточно истории для построения прогноза |
+| `400` | прочие доменные ошибки |
+
+Пример:
+```bash
+curl 'http://localhost:8000/weather?city=Москва&time=2026-07-28T12:00'
+```
+
+---
+
+## Разработка
+
+```bash
+uv run ruff check .          # линтер
+uv run ruff format .         # автоформат
+uv run mypy src              # проверка типов
+uv run pytest                # тесты (use case на фейковых репозиториях + фичи)
+uv run pre-commit run --all-files
+```

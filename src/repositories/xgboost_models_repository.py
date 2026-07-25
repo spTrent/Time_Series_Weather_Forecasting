@@ -1,10 +1,14 @@
-import joblib
-from xgboost import XGBRegressor
-import pandas as pd
 import os
 
+import joblib
+import pandas as pd
+from xgboost import XGBRegressor
+
+
 class XGBoostModelsRepository:
-    def __init__(self, models_dir: str, source: str, models_count: int = 7) -> None:
+    def __init__(
+        self, models_dir: str, source: str, models_count: int = 7
+    ) -> None:
         schema = joblib.load(os.path.join(models_dir, 'feature_schema.joblib'))
         self.feature_columns = schema['feature_columns']
         self._models: dict[int, XGBRegressor] = {}
@@ -12,7 +16,9 @@ class XGBoostModelsRepository:
 
         for day in range(1, models_count + 1):
             model = XGBRegressor()
-            model.load_model(os.path.join(models_dir, f'model_day_{day}_with_{source}.json'))
+            model.load_model(
+                os.path.join(models_dir, f'model_day_{day}_with_{source}.json')
+            )
             self._models[day] = model
 
     def predict(self, day: int, data: pd.DataFrame) -> float:
