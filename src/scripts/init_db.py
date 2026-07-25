@@ -1,7 +1,7 @@
 import pandas as pd
-from src.db import get_engine
+from src.api.config import get_engine
 
-df = pd.read_csv('data/weather_clean.csv', parse_dates=['ds'])
+df = pd.read_csv('data/weather_clean_with_xlsx.csv', parse_dates=['ds'])
 df.to_sql(
     'weather_hourly',
     con=get_engine(),

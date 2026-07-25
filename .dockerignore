@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.cache.sqlite
+.cache/
+
+.git/
+.idea/
+.vscode/
+
+*.ipynb
+*.xlsx
+data/
+docs/
+
+.env

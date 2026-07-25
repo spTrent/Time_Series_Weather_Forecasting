@@ -3,16 +3,8 @@ import openmeteo_requests
 import pandas as pd
 import requests_cache
 from retry_requests import retry
-from src.db import get_engine, upsert_weather
-
-CITY_COORDS = {
-    'Москва':           {'latitude': 55.7558, 'longitude': 37.6173, 'timezone': 'Europe/Moscow'},
-    'Санкт-Петербург':  {'latitude': 59.9391, 'longitude': 30.3159, 'timezone': 'Europe/Moscow'},
-    'Благовещенск':     {'latitude': 50.2907, 'longitude': 127.5272, 'timezone': 'Asia/Yakutsk'},
-    'Находка':          {'latitude': 42.8237, 'longitude': 132.8942, 'timezone': 'Asia/Vladivostok'},
-    'Сочи':             {'latitude': 43.5855, 'longitude': 39.7231, 'timezone': 'Europe/Moscow'},
-    'Геленджик':        {'latitude': 44.5612, 'longitude': 38.0766, 'timezone': 'Europe/Moscow'},
-}
+from src.api.config import get_engine, upsert_weather
+from src.domain.cities import CITY_COORDS
 
 def get_weather_data(city: str, start_date: str, end_date: str) -> pd.DataFrame:
 	"""
@@ -71,7 +63,7 @@ def get_weather_data(city: str, start_date: str, end_date: str) -> pd.DataFrame:
 
 def main(city: str, start_date: str, end_date: str):
 	df = get_weather_data(city, start_date, end_date)
-	print('Добавлено строк: ', upsert_weather())
+	print('Добавлено строк: ', upsert_weather(df))
 	print('NaN в температуре:', df['temperature_2m'].isna().sum())
 
 if __name__ == "__main__":

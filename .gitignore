@@ -306,3 +306,6 @@ pyrightconfig.json
 
 .cache.sqlite
 *.sqlite
+.claude
+.claude/
+.claude/*

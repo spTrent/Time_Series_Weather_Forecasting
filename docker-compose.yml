@@ -10,10 +10,24 @@ services:
       - "weather_pgdata:/var/lib/postgresql/data"
       - "./init:/docker-entrypoint-initdb.d:ro"
     healthcheck:
-      test: ['CMD-SHELL', "pg_isready -U $${PGDB_USER} -d $${PGDB_PASSWORD}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
-      
+
+  app:
+    build: .
+    container_name: weather-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PGDB_HOST: db
+      PGDB_PORT: "5432"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   weather_pgdata:
